@@ -19,7 +19,7 @@ export function DiaryDetail({ diary, onEdit, onDelete }: DiaryDetailProps) {
   return (
     <section className="panel diary-detail" aria-label="日记详情">
       <div className="diary-detail-top">
-        <div className="diary-detail-kicker">当前选择</div>
+        <div className="diary-detail-kicker">日记详情</div>
         <div className="diary-detail-actions">
           <button type="button" onClick={() => onEdit(diary)}>
             编辑

@@ -6,7 +6,6 @@ import { GithubPanel } from './components/GithubPanel';
 import { DiaryEditor } from './components/DiaryEditor';
 import { DiaryDetail } from './components/DiaryDetail';
 import { DiaryGrid } from './components/DiaryGrid';
-import { DiaryModal } from './components/DiaryModal';
 
 function App() {
   const [diaries, setDiaries] = useState<Diary[]>([]);
@@ -14,7 +13,6 @@ function App() {
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
 
   const githubUsername = import.meta.env.GITHUB_USERNAME ?? 'ashy6';
 
@@ -114,28 +112,12 @@ function App() {
             diaries={orderedDiaries}
             selectedId={selectedId}
             onSelect={(diary) => setSelectedId(diary.id)}
-            onOpen={(diary) => {
-              setSelectedId(diary.id);
-              setModalOpen(true);
-            }}
           />
         </div>
         <div className="right-column">
           <GithubPanel username={githubUsername} />
         </div>
       </div>
-
-      {selectedDiary && (
-        <DiaryModal
-          diary={selectedDiary}
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onSave={async (next) => {
-            await diaryService.update(selectedDiary.id, next);
-            await loadDiaries(selectedDiary.id);
-          }}
-        />
-      )}
     </div>
   );
 }

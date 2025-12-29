@@ -4,14 +4,13 @@ type DiaryGridProps = {
   diaries: Diary[];
   selectedId: number | null;
   onSelect: (diary: Diary) => void;
-  onOpen: (diary: Diary) => void;
 };
 
 function getPreviewText(content: string) {
   return content.replace(/\s+/g, ' ').trim();
 }
 
-export function DiaryGrid({ diaries, selectedId, onSelect, onOpen }: DiaryGridProps) {
+export function DiaryGrid({ diaries, selectedId, onSelect }: DiaryGridProps) {
   return (
     <section className="panel diary-grid-panel" aria-label="日记网格">
       <div className="panel-title">日记</div>
@@ -23,10 +22,7 @@ export function DiaryGrid({ diaries, selectedId, onSelect, onOpen }: DiaryGridPr
             <article
               key={diary.id}
               className={`diary-grid-card${selectedId === diary.id ? ' is-selected' : ''}`}
-              onClick={() => {
-                onSelect(diary);
-                onOpen(diary);
-              }}
+              onClick={() => onSelect(diary)}
             >
               <div className="diary-grid-card-top">
                 <div className="diary-grid-title">{diary.title}</div>
