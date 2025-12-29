@@ -66,8 +66,8 @@ function App() {
 
   return (
     <div className="container">
-      <h1>Diary App</h1>
-      
+      <h1>开心 日记</h1>
+
       <form onSubmit={handleSubmit} className="diary-form">
         <input
           type="text"
@@ -83,8 +83,8 @@ function App() {
           required
         />
         <div className="form-actions">
-          <button type="submit">{editingId ? 'Update' : 'Add'} Diary</button>
-          {editingId && <button type="button" onClick={handleCancel}>Cancel</button>}
+          <button type="submit">{editingId ? '更新' : '添加'} 日记</button>
+          {editingId && <button type="button" onClick={handleCancel}>取消</button>}
         </div>
       </form>
 
@@ -95,8 +95,8 @@ function App() {
             <p>{diary.content}</p>
             <small>{new Date(diary.createdAt).toLocaleString()}</small>
             <div className="card-actions">
-              <button onClick={() => handleEdit(diary)}>Edit</button>
-              <button onClick={() => handleDelete(diary.id)}>Delete</button>
+              <button onClick={() => handleEdit(diary)}>编辑</button>
+              <button onClick={() => handleDelete(diary.id)}>删除</button>
             </div>
           </div>
         ))}
