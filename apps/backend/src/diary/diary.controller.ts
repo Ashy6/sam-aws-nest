@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { DiaryService } from './diary.service';
 import { CreateDiaryDto } from './dto/create-diary.dto';
@@ -5,7 +6,7 @@ import { UpdateDiaryDto } from './dto/update-diary.dto';
 
 @Controller('diary')
 export class DiaryController {
-  constructor(private readonly diaryService: DiaryService) {}
+  constructor(private readonly diaryService: DiaryService) { }
 
   @Post()
   create(@Body() createDiaryDto: CreateDiaryDto) {
