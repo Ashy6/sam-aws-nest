@@ -1,35 +1,108 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+/* eslint-disable react-hooks/immutability */
+import { useEffect, useState } from 'react';
+import './App.css';
+import { diaryService } from './services/diary.service';
+import type { Diary } from './types/diary';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [diaries, setDiaries] = useState<Diary[]>([]);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadDiaries();
+  }, []);
+
+  const loadDiaries = async () => {
+    try {
+      const data = await diaryService.findAll();
+      setDiaries(data);
+    } catch (error) {
+      console.error('Failed to load diaries', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !content) return;
+
+    try {
+      if (editingId) {
+        await diaryService.update(editingId, { title, content });
+        setEditingId(null);
+      } else {
+        await diaryService.create({ title, content });
+      }
+      setTitle('');
+      setContent('');
+      loadDiaries();
+    } catch (error) {
+      console.error('Failed to save diary', error);
+    }
+  };
+
+  const handleEdit = (diary: Diary) => {
+    setEditingId(diary.id);
+    setTitle(diary.title);
+    setContent(diary.content);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure?')) return;
+    try {
+      await diaryService.remove(id);
+      loadDiaries();
+    } catch (error) {
+      console.error('Failed to delete diary', error);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingId(null);
+    setTitle('');
+    setContent('');
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="container">
+      <h1>Diary App</h1>
+      
+      <form onSubmit={handleSubmit} className="diary-form">
+        <input
+          type="text"
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+        />
+        <textarea
+          placeholder="Content"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          required
+        />
+        <div className="form-actions">
+          <button type="submit">{editingId ? 'Update' : 'Add'} Diary</button>
+          {editingId && <button type="button" onClick={handleCancel}>Cancel</button>}
+        </div>
+      </form>
+
+      <div className="diary-list">
+        {diaries.map((diary) => (
+          <div key={diary.id} className="diary-card">
+            <h3>{diary.title}</h3>
+            <p>{diary.content}</p>
+            <small>{new Date(diary.createdAt).toLocaleString()}</small>
+            <div className="card-actions">
+              <button onClick={() => handleEdit(diary)}>Edit</button>
+              <button onClick={() => handleDelete(diary.id)}>Delete</button>
+            </div>
+          </div>
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
