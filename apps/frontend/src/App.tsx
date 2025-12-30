@@ -13,21 +13,39 @@ function App() {
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const githubUsername = import.meta.env.GITHUB_USERNAME ?? 'ashy6';
 
   const loadDiaries = useCallback(async (preferSelectedId?: number) => {
+    setApiLoading(true);
+    setApiError(null);
     try {
       const data = await diaryService.findAll();
-      if (!data || (data as ErrorResponse)?.statusCode !== 200 || !data) return;
-      setDiaries(data as Diary[]);
-      setSelectedId((prev) => {
-        const candidate = preferSelectedId ?? prev;
-        if (candidate && (data as Diary[]).some((d) => d.id === candidate)) return candidate;
-        return (data as Diary[])[0]?.id ?? null;
-      });
-    } catch (error) {
-      console.error('Failed to load diaries', error);
+      if (Array.isArray(data)) {
+        setDiaries(data as Diary[]);
+        setSelectedId((prev) => {
+          const candidate = preferSelectedId ?? prev;
+          if (candidate != null && (data as Diary[]).some((d) => d.id === candidate)) return candidate;
+          return (data as Diary[])[0]?.id ?? null;
+        });
+        return;
+      }
+
+      const statusCode = (data as ErrorResponse | null | undefined)?.statusCode;
+      if (typeof statusCode === 'number') {
+        setDiaries([]);
+        setSelectedId(null);
+        setApiError(`接口错误（${statusCode}）`);
+        return;
+      }
+
+      setApiError('接口返回格式异常');
+    } catch {
+      setApiError('接口不可用，请稍后重试');
+    } finally {
+      setApiLoading(false);
     }
   }, []);
 
@@ -63,8 +81,8 @@ function App() {
       }
       setTitle('');
       setContent('');
-    } catch (error) {
-      console.error('Failed to save diary', error);
+    } catch {
+      setApiError('保存失败：接口不可用');
     }
   };
 
@@ -80,8 +98,8 @@ function App() {
     try {
       await diaryService.remove(id);
       await loadDiaries();
-    } catch (error) {
-      console.error('Failed to delete diary', error);
+    } catch {
+      setApiError('删除失败：接口不可用');
     }
   };
 
@@ -95,6 +113,13 @@ function App() {
     <div className="container">
       <header className="page-header">
         <h1 className="page-title">开心 日记</h1>
+        <div className="api-status">
+          {apiLoading ? <span className="api-status-text">加载中…</span> : null}
+          {apiError ? <span className="api-status-error">{apiError}</span> : null}
+          <button type="button" className="api-status-retry" onClick={() => void loadDiaries()} disabled={apiLoading}>
+            重试
+          </button>
+        </div>
       </header>
 
       <div className="top-layout">
