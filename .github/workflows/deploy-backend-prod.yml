@@ -37,11 +37,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
+          echo "::add-mask::$DATABASE_URL_FIXED"
           sam deploy \
             --config-env prod \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides "DatabaseUrl=$DATABASE_URL"
+            --parameter-overrides "DatabaseUrl=$DATABASE_URL_FIXED"
 
       - name: Print stack outputs
         run: |
