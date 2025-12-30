@@ -1,0 +1,13 @@
+version = 0.1
+
+[prod.deploy.parameters]
+stack_name = "sam-aws-nest-backend-prod"
+resolve_s3 = true
+s3_prefix = "sam-aws-nest-backend-prod"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+
+[prod.global.parameters]
+region = "ap-southeast-2"
