@@ -5,3 +5,4 @@ build
 .env
 .trae
 *.sh
+scripts/deploy-backend.local.env
