@@ -18,7 +18,7 @@ export function DiaryGrid({ diaries, selectedId, onSelect }: DiaryGridProps) {
         <div className="diary-grid-empty">还没有日记，先写一篇吧。</div>
       ) : (
         <div className="diary-grid">
-          {diaries.map((diary) => (
+          {(diaries || []).map((diary) => (
             <article
               key={diary.id}
               className={`diary-grid-card${selectedId === diary.id ? ' is-selected' : ''}`}
