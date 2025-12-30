@@ -1,6 +1,9 @@
 import type { ErrorResponse, Diary, CreateDiaryDto, UpdateDiaryDto, ErrorResponseType } from '../types/diary';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:3000';
+const API_BASE_URL =
+  window.__APP_CONFIG__?.API_BASE_URL ??
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+  '/api';
 const normalizedApiBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
 const API_URL = `${normalizedApiBaseUrl}/diary`;
 
