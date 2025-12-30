@@ -11,10 +11,7 @@ Parameters:
     Default: vpc-094aab3e972efcde7
   LambdaSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Default:
-      - subnet-0b79f88e6ededb59f
-      - subnet-0d1cd8d8435c860a0
-      - subnet-0cac60b12c1256b12
+    Default: subnet-0b79f88e6ededb59f,subnet-0d1cd8d8435c860a0,subnet-0cac60b12c1256b12
   DatabaseSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
     Default: sg-058034aedf551f362
