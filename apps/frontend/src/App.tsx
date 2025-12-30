@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { diaryService } from './services/diary.service';
-import type { Diary } from './types/diary';
+import type { Diary, ErrorResponse } from './types/diary';
 import { GithubPanel } from './components/GithubPanel';
 import { DiaryEditor } from './components/DiaryEditor';
 import { DiaryDetail } from './components/DiaryDetail';
@@ -19,11 +19,12 @@ function App() {
   const loadDiaries = useCallback(async (preferSelectedId?: number) => {
     try {
       const data = await diaryService.findAll();
-      setDiaries(data || []);
+      if (!data || (data as ErrorResponse)?.statusCode !== 200 || !data) return;
+      setDiaries(data as Diary[]);
       setSelectedId((prev) => {
         const candidate = preferSelectedId ?? prev;
-        if (candidate && data.some((d) => d.id === candidate)) return candidate;
-        return data[0]?.id ?? null;
+        if (candidate && (data as Diary[]).some((d) => d.id === candidate)) return candidate;
+        return (data as Diary[])[0]?.id ?? null;
       });
     } catch (error) {
       console.error('Failed to load diaries', error);

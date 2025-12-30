@@ -7,6 +7,12 @@ export interface Diary {
   updatedAt: string;
 }
 
+export interface ErrorResponse {
+  statusCode: number;
+}
+
+export type ErrorResponseType = ErrorResponse | Diary;
+
 export interface CreateDiaryDto {
   title: string;
   content: string;
