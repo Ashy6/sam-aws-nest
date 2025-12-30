@@ -19,7 +19,7 @@ function App() {
   const loadDiaries = useCallback(async (preferSelectedId?: number) => {
     try {
       const data = await diaryService.findAll();
-      setDiaries(data);
+      setDiaries(data || []);
       setSelectedId((prev) => {
         const candidate = preferSelectedId ?? prev;
         if (candidate && data.some((d) => d.id === candidate)) return candidate;
