@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: sam-aws-nest backend (NestJS) running on AWS Lambda
+
+Parameters:
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    MemorySize: 512
+    Timeout: 15
+
+Resources:
+  BackendHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - HEAD
+          - PUT
+          - PATCH
+          - POST
+          - DELETE
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+
+  BackendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: apps/backend/
+      Handler: src/lambda.handler
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+      Events:
+        ProxyApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      BuildMethod: makefile
+
+Outputs:
+  BackendApiUrl:
+    Description: HTTP API endpoint
+    Value: !Sub 'https://${BackendHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
