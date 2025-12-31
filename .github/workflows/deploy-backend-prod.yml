@@ -33,6 +33,15 @@ jobs:
       - name: Build
         run: sam build
 
+      - name: Run Prisma migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
+          echo "::add-mask::$DATABASE_URL_FIXED"
+          export DATABASE_URL="$DATABASE_URL_FIXED"
+          npx -y prisma@6.0.0 migrate deploy --schema apps/backend/prisma/schema.prisma
+
       - name: Deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -1,7 +1,9 @@
 build-BackendFunction:
 	npm install --include=dev --no-fund --no-audit
+	npm exec prisma generate
 	npm run build
 	npm prune --omit=dev
+	mkdir -p $(ARTIFACTS_DIR)
 	cp -R dist/* $(ARTIFACTS_DIR)
 	cp -R node_modules $(ARTIFACTS_DIR)
 	cp package.json $(ARTIFACTS_DIR)

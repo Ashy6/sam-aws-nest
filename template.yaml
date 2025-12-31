@@ -8,13 +8,13 @@ Parameters:
     NoEcho: true
   VpcId:
     Type: AWS::EC2::VPC::Id
-    Default: vpc-094aab3e972efcde7
+    Default: vpc-00b91951c36f803c6
   LambdaSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Default: subnet-0b79f88e6ededb59f,subnet-0d1cd8d8435c860a0,subnet-0cac60b12c1256b12
+    Default: subnet-0252fa717f4638268,subnet-05b32a038870ee48f,subnet-0479d42241a7eae8f
   DatabaseSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
-    Default: sg-058034aedf551f362
+    Default: sg-0fc391d30ffe29141
 
 Globals:
   Function:
