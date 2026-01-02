@@ -251,7 +251,7 @@ Parameters:
 ### 数据库连接
 
 ```
-DatabaseUrl: postgresql://<DB_USER>:<DB_PASSWORD>@database-nest.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com:5432/DB?schema=public
+DatabaseUrl: postgresql://<DB_USER>:<DB_PASSWORD>@database-nest.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com:5432/sam_aws_nest?schema=public
 ```
 
 ## 构建和部署

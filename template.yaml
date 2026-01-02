@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: sam-aws-nest backend (NestJS) running on AWS Lambda
+
+Parameters:
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+  LambdaSecurityGroupId:
+    Type: String
+    Default: ''
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-00b91951c36f803c6
+  LambdaSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: subnet-0252fa717f4638268,subnet-05b32a038870ee48f,subnet-0479d42241a7eae8f
+  DatabaseSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-0fc391d30ffe29141
+
+Conditions:
+  CreateManagedLambdaSecurityGroup: !Equals [!Ref LambdaSecurityGroupId, '']
+  UseExistingLambdaSecurityGroup: !Not [!Equals [!Ref LambdaSecurityGroupId, '']]
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    MemorySize: 512
+    Timeout: 15
+
+Resources:
+  BackendHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - HEAD
+          - PUT
+          - PATCH
+          - POST
+          - DELETE
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+
+  BackendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: apps/backend/
+      Handler: src/lambda.handler
+      VpcConfig:
+        SecurityGroupIds:
+          - !If
+            - UseExistingLambdaSecurityGroup
+            - !Ref LambdaSecurityGroupId
+            - !Ref BackendLambdaSecurityGroup
+        SubnetIds: !Ref LambdaSubnetIds
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+      Events:
+        ProxyApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      BuildMethod: makefile
+
+  MigrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: apps/backend/
+      Handler: src/migration.handler
+      Timeout: 900
+      VpcConfig:
+        SecurityGroupIds:
+          - !If
+            - UseExistingLambdaSecurityGroup
+            - !Ref LambdaSecurityGroupId
+            - !Ref BackendLambdaSecurityGroup
+        SubnetIds: !Ref LambdaSubnetIds
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+    Metadata:
+      BuildMethod: makefile
+
+  BackendLambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateManagedLambdaSecurityGroup
+    Properties:
+      GroupDescription: sam-aws-nest backend lambda
+      VpcId: !Ref VpcId
+
+  DatabaseIngressFromBackendLambda:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: CreateManagedLambdaSecurityGroup
+    Properties:
+      GroupId: !Ref DatabaseSecurityGroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref BackendLambdaSecurityGroup
+
+Outputs:
+  BackendApiUrl:
+    Description: HTTP API endpoint
+    Value: !Sub 'https://${BackendHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  MigrationFunctionName:
+    Description: Prisma migration runner Lambda function name
+    Value: !Ref MigrationFunction
