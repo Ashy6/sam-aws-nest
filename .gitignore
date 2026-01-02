@@ -1,6 +1,7 @@
 node_modules
 dist
 build
+.aws-sam/
 .DS_Store
 .env
 .trae

@@ -270,6 +270,13 @@ sam deploy --config-env prod \
   --parameter-overrides "DatabaseUrl=$DATABASE_URL VpcId=vpc-00b91951c36f803c6 LambdaSubnetIds=subnet-0252fa717f4638268,subnet-05b32a038870ee48f,subnet-0479d42241a7eae8f DatabaseSecurityGroupId=sg-0fc391d30ffe29141"
 ```
 
+如果后端代码需要编译（例如 TypeScript），部署时使用构建产物模板：
+
+```bash
+sam deploy --template-file .aws-sam/build/template.yaml --config-env prod \
+  --parameter-overrides "DatabaseUrl=$DATABASE_URL VpcId=vpc-00b91951c36f803c6 LambdaSubnetIds=subnet-0252fa717f4638268,subnet-05b32a038870ee48f,subnet-0479d42241a7eae8f DatabaseSecurityGroupId=sg-0fc391d30ffe29141"
+```
+
 部署完成后执行 Prisma 迁移（会自动创建 `DATABASE_URL` 里指定的数据库，如果不存在）：
 
 ```bash
