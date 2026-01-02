@@ -62,7 +62,10 @@ jobs:
           fi
           sam deploy \
             --template-file .aws-sam/build/template.yaml \
-            --config-env prod \
+            --stack-name sam-aws-nest-backend-prod \
+            --region "$AWS_REGION" \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --parameter-overrides "${PARAM_OVERRIDES[@]}"
