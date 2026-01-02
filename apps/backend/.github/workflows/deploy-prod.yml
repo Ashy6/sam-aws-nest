@@ -39,14 +39,7 @@ jobs:
         run: |
           DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
           echo "::add-mask::$DATABASE_URL_FIXED"
-          DB_HOST="$(python3 - <<'PY'
-import os
-import urllib.parse
-url = os.environ["DATABASE_URL_FIXED"]
-p = urllib.parse.urlparse(url)
-print(p.hostname or "")
-PY
-)"
+          DB_HOST="$(python3 -c 'import os,urllib.parse; print(urllib.parse.urlparse(os.environ["DATABASE_URL_FIXED"]).hostname or "")')"
           DB_SG_ID="$(aws rds describe-db-instances \
             --region "$AWS_REGION" \
             --query "DBInstances[?Endpoint.Address=='${DB_HOST}'].VpcSecurityGroups[0].VpcSecurityGroupId" \
