@@ -1,5 +1,0 @@
-name = "sam-aws-nest"
-main = "dist/main.js"
-compatibility_date = "2025-12-30"
-
-compatibility_flags = ["nodejs_compat"]

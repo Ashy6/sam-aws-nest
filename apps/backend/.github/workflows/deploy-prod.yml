@@ -1,0 +1,63 @@
+name: Deploy Backend (prod)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-southeast-2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install SAM CLI
+        run: |
+          python3 -m pip install --user aws-sam-cli
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          sam --version
+
+      - name: Build
+        run: sam build
+
+      - name: Run Prisma migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
+          echo "::add-mask::$DATABASE_URL_FIXED"
+          export DATABASE_URL="$DATABASE_URL_FIXED"
+          npx -y prisma@6.0.0 migrate deploy --schema prisma/schema.prisma
+
+      - name: Deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
+          echo "::add-mask::$DATABASE_URL_FIXED"
+          sam deploy \
+            --config-env prod \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides "DatabaseUrl=$DATABASE_URL_FIXED"
+
+      - name: Print stack outputs
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name sam-aws-nest-backend-prod \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs' \
+            --output table
