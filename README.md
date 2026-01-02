@@ -2,13 +2,59 @@
 
 基于 AWS Lambda 的 NestJS 后端服务，运行在 nest-vpc 私有网络中。
 
+## 文档
+
+- 私有化部署（Lambda / ECS / EC2）+ 私有 RDS + 对外 API 访问：[`docs/aws-private-deployment.md`](docs/aws-private-deployment.md)
+
 ## 架构概览
 
+```mermaid
+flowchart LR
+  U[互联网客户端] -->|HTTPS| APIGW[API Gateway HTTP API]
+  APIGW -->|Invoke| L[Lambda: NestJS (私有子网)]
+  L -->|TCP 5432| DB[(RDS PostgreSQL 私有库)]
+  L -->|出网访问| NAT[NAT Gateway] --> NET[互联网]
+  L --> LOGS[CloudWatch Logs]
+  MIG[MigrationFunction<br/>Prisma migrate deploy] -->|TCP 5432| DB
 ```
-Internet → API Gateway → Lambda (nest-vpc) → RDS (nest-vpc)
-                ↓
-           NAT Gateway → Internet
+
+- 对外只暴露 `API Gateway` 入口；`Lambda/RDS` 都在 VPC 私有子网，无法被公网直连
+- 应用路由统一前缀为 `/api`（示例：`GET /api/diary`）
+- 数据库入站只放行来自 Lambda 安全组的 `5432/tcp`（最小权限）
+
+#### 文件架构
+
+```text
+sam-aws-nest/
+├─ apps/
+│  ├─ backend/                      # NestJS + Prisma 后端（同时用于两类 Lambda：业务/迁移）
+│  │  ├─ src/                       # NestJS 应用代码（controller/service/module/lambda handler）
+│  │  ├─ prisma/                    # Prisma schema 与 migrations（表结构演进）
+│  │  ├─ test/                      # e2e 测试
+│  │  ├─ Makefile                   # SAM 自定义构建：install → prisma generate → build → prune → 打包
+│  │  ├─ package.json               # 后端依赖与脚本（build/lint/test/prisma）
+│  │  └─ .github/workflows/         # 后端侧工作流（历史/备用）
+│  └─ frontend/                     # Vite + React 前端
+│     ├─ src/                       # 前端页面/组件/服务封装
+│     ├─ public/                    # 静态资源与运行时配置（如 public/config.js）
+│     └─ vite.config.ts             # Vite 构建与代理等配置
+├─ .github/workflows/               # 根工作流：生产部署入口（Deploy Backend (prod)）
+├─ docs/                            # 项目文档
+├─ template.yml                     # AWS SAM 模板：HTTP API + Lambda + VPC/SG + MigrationFunction 输出
+├─ samconfig.toml                   # SAM 部署配置（prod 的 stack_name/region 等）
+├─ pnpm-workspace.yaml              # pnpm monorepo 工作区定义
+├─ package.json                     # 根依赖/脚本（驱动 workspace）
+└─ README.md                        # 项目说明与网络/部署/排障文档入口
 ```
+
+**关键文件说明**
+
+- `template.yml`：定义 `BackendHttpApi`、`BackendFunction`、`MigrationFunction`、VPC 子网与安全组联动（对外 API 入口与私有 DB 访问都在这里编排）
+- `samconfig.toml`：把 `prod` 环境的 `stack_name`、`region`、`resolve_s3` 等部署参数固化，便于 CI/本地一致部署
+- `apps/backend/src/lambda.ts`：Lambda 入口，适配 API Gateway 事件并启动 NestJS（设置全局前缀 `/api`）
+- `apps/backend/src/migration.ts`：迁移入口，执行 `prisma migrate deploy`，用于私有 RDS 的表结构初始化/升级
+- `apps/backend/prisma/`：`schema.prisma` 与 `migrations/`，所有表结构的事实来源与可追溯变更
+- `.github/workflows/deploy-backend-prod.yml`：生产部署工作流（构建 → `sam deploy` → 调用迁移函数 → 输出栈信息）
 
 ## VPC 网络架构
 
@@ -21,13 +67,15 @@ Internet → API Gateway → Lambda (nest-vpc) → RDS (nest-vpc)
 ### 子网划分
 
 #### 公有子网
-| 子网ID | 可用区 | CIDR | 用途 |
-|--------|--------|------|------|
+
+| 子网ID                   | 可用区          | CIDR        | 用途                  |
+| ------------------------ | --------------- | ----------- | --------------------- |
 | subnet-0c3469f644fe8631c | ap-southeast-2a | 10.0.0.0/28 | NAT Gateway, 公网访问 |
 
 #### 私有子网 (Lambda 运行环境)
-| 子网ID | 可用区 | CIDR | 用途 |
-|--------|--------|------|------|
+
+| 子网ID                   | 可用区          | CIDR         | 用途        |
+| ------------------------ | --------------- | ------------ | ----------- |
 | subnet-0252fa717f4638268 | ap-southeast-2a | 10.0.0.16/28 | Lambda 函数 |
 | subnet-05b32a038870ee48f | ap-southeast-2b | 10.0.0.32/28 | Lambda 函数 |
 | subnet-0479d42241a7eae8f | ap-southeast-2c | 10.0.0.48/28 | Lambda 函数 |
@@ -35,10 +83,12 @@ Internet → API Gateway → Lambda (nest-vpc) → RDS (nest-vpc)
 ### 网关和路由
 
 #### Internet Gateway
+
 - **ID**: igw-0a6e8386eda44ca45
 - **用途**: 提供 VPC 与互联网的连接
 
 #### NAT Gateway
+
 - **ID**: nat-12f36fc05c55fa7fd
 - **位置**: 公有子网 (subnet-0c3469f644fe8631c)
 - **用途**: 允许私有子网中的资源访问互联网
@@ -46,6 +96,7 @@ Internet → API Gateway → Lambda (nest-vpc) → RDS (nest-vpc)
 #### 路由表
 
 **公有子网路由表** (rtb-0458c23df2cc44e87)
+
 ```
 目标           下一跳
 10.0.0.0/24    local
@@ -53,6 +104,7 @@ Internet → API Gateway → Lambda (nest-vpc) → RDS (nest-vpc)
 ```
 
 **私有子网路由表** (rtb-015fa79152fa29f82)
+
 ```
 目标           下一跳
 10.0.0.0/24    local
@@ -62,12 +114,14 @@ Internet → API Gateway → Lambda (nest-vpc) → RDS (nest-vpc)
 ### 安全组
 
 #### Lambda 安全组 (lambda-sg)
+
 - **ID**: sg-03f70a4888769b78c
 - **出站规则**:
   - 目标: sg-0fc391d30ffe29141 (rds-sg), 端口: 5432 (PostgreSQL)
   - 目标: 0.0.0.0/0, 协议: All (访问互联网)
 
 #### RDS 安全组 (rds-sg)
+
 - **ID**: sg-0fc391d30ffe29141
 - **入站规则**:
   - 来源: sg-03f70a4888769b78c (lambda-sg), 端口: 5432
@@ -86,8 +140,9 @@ graph LR
 ```
 
 **流程**:
+
 1. 用户从互联网发送 HTTPS 请求到 API Gateway
-2. API Gateway 端点: `https://lioxovpmxc.execute-api.ap-southeast-2.amazonaws.com`
+2. API Gateway 端点: `https://lioxovpmxc.execute-api.ap-southeast-2.amazonaws.com/`
 3. API Gateway 接收请求并进行路由匹配
 
 ### 2. API Gateway → Lambda (VPC 内)
@@ -100,6 +155,7 @@ graph TB
 ```
 
 **流程**:
+
 1. API Gateway 通过 AWS 内部网络调用 Lambda 函数
 2. Lambda 函数运行在 nest-vpc 的私有子网中（3个可用区实现高可用）
 3. Lambda 的 ENI (弹性网络接口) 附加到私有子网，获得私有 IP 地址
@@ -119,6 +175,7 @@ graph LR
 **详细流程**:
 
 #### 出站流量 (Lambda → RDS)
+
 1. **Lambda 发起连接**:
    - 源 IP: Lambda ENI 的私有 IP (10.0.0.x)
    - 目标 IP: database-nest.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com
@@ -132,31 +189,38 @@ graph LR
    - 流量在 VPC 内部路由
 
 3. **lambda-sg 出站规则检查**:
+
    ```
    规则 1: 目标=sg-0fc391d30ffe29141, 协议=TCP, 端口=5432 ✓ 匹配
    规则 2: 目标=0.0.0.0/0, 协议=All ✓ 也匹配（更宽泛）
    ```
+
    - 允许流量离开 Lambda
 
 #### 入站流量 (RDS 接收)
-4. **rds-sg 入站规则检查**:
+
+1. **rds-sg 入站规则检查**:
+
    ```
    规则 1: 来源=sg-03f70a4888769b78c (lambda-sg), 端口=5432 ✓ 匹配
    ```
+
    - 允许流量进入 RDS
 
-5. **TCP 连接建立**:
+2. **TCP 连接建立**:
    - 三次握手完成
    - PostgreSQL 协议握手
    - Lambda 现在可以执行 SQL 查询
 
 #### 返回流量 (RDS → Lambda)
-6. **rds-sg 出站规则**:
+
+1. **rds-sg 出站规则**:
+
    ```
    规则: 目标=0.0.0.0/0, 协议=All ✓ 允许所有出站
    ```
 
-7. **lambda-sg 入站规则**:
+2. **lambda-sg 入站规则**:
    - 由于这是已建立连接的返回流量，自动允许（有状态防火墙）
 
 ### 4. Lambda → 外部服务 (通过 NAT Gateway)
@@ -218,21 +282,21 @@ graph RL
 
 ### 入站流量规则汇总
 
-| 源 | 目标 | 协议/端口 | 安全组规则 | 允许/拒绝 |
-|---|------|----------|-----------|----------|
-| 互联网 | API Gateway | HTTPS/443 | AWS 托管 | ✓ 允许 |
-| API Gateway | Lambda | AWS 内部 | AWS 托管 | ✓ 允许 |
-| Lambda (lambda-sg) | RDS (rds-sg) | TCP/5432 | rds-sg 入站规则 | ✓ 允许 |
-| 互联网 | Lambda | - | 无规则 | ✗ 拒绝 (私有子网) |
-| 互联网 | RDS | TCP/5432 | rds-sg 入站规则 | ✓ 允许 (管理访问) |
+| 源                 | 目标         | 协议/端口 | 安全组规则      | 允许/拒绝         |
+| ------------------ | ------------ | --------- | --------------- | ----------------- |
+| 互联网             | API Gateway  | HTTPS/443 | AWS 托管        | ✓ 允许            |
+| API Gateway        | Lambda       | AWS 内部  | AWS 托管        | ✓ 允许            |
+| Lambda (lambda-sg) | RDS (rds-sg) | TCP/5432  | rds-sg 入站规则 | ✓ 允许            |
+| 互联网             | Lambda       | -         | 无规则          | ✗ 拒绝 (私有子网) |
+| 互联网             | RDS          | TCP/5432  | rds-sg 入站规则 | ✓ 允许 (管理访问) |
 
 ### 出站流量规则汇总
 
-| 源 | 目标 | 协议/端口 | 安全组规则 | 路由 |
-|---|------|----------|-----------|------|
-| Lambda | RDS | TCP/5432 | lambda-sg 出站规则 | VPC local |
-| Lambda | 互联网 | All | lambda-sg 出站规则 | NAT Gateway |
-| RDS | Any | All | rds-sg 出站规则 | 根据目标路由 |
+| 源     | 目标   | 协议/端口 | 安全组规则         | 路由         |
+| ------ | ------ | --------- | ------------------ | ------------ |
+| Lambda | RDS    | TCP/5432  | lambda-sg 出站规则 | VPC local    |
+| Lambda | 互联网 | All       | lambda-sg 出站规则 | NAT Gateway  |
+| RDS    | Any    | All       | rds-sg 出站规则    | 根据目标路由 |
 
 ## 部署配置
 
@@ -297,17 +361,17 @@ cat /tmp/migrate.json
 
 ```makefile
 build-BackendFunction:
-	npm install --include=dev --no-fund --no-audit
-	npm exec prisma generate              # 生成 Prisma 客户端
-	npm run build                         # 构建 NestJS 应用
-	npm prune --omit=dev                  # 删除开发依赖
-	mkdir -p $(ARTIFACTS_DIR)
-	cp -R dist/* $(ARTIFACTS_DIR)         # 复制编译产物
-	cp -R node_modules $(ARTIFACTS_DIR)   # 复制生产依赖
-	cp package.json $(ARTIFACTS_DIR)
-	mkdir -p $(ARTIFACTS_DIR)/prisma
-	cp prisma/schema.prisma $(ARTIFACTS_DIR)/prisma/schema.prisma
-	cp -R prisma/migrations $(ARTIFACTS_DIR)/prisma/migrations
+ npm install --include=dev --no-fund --no-audit
+ npm exec prisma generate              # 生成 Prisma 客户端
+ npm run build                         # 构建 NestJS 应用
+ npm prune --omit=dev                  # 删除开发依赖
+ mkdir -p $(ARTIFACTS_DIR)
+ cp -R dist/* $(ARTIFACTS_DIR)         # 复制编译产物
+ cp -R node_modules $(ARTIFACTS_DIR)   # 复制生产依赖
+ cp package.json $(ARTIFACTS_DIR)
+ mkdir -p $(ARTIFACTS_DIR)/prisma
+ cp prisma/schema.prisma $(ARTIFACTS_DIR)/prisma/schema.prisma
+ cp -R prisma/migrations $(ARTIFACTS_DIR)/prisma/migrations
 ```
 
 ### CI/CD (GitHub Actions)
@@ -315,22 +379,26 @@ build-BackendFunction:
 工作流文件: `.github/workflows/deploy-backend-prod.yml`
 
 触发部署:
+
 1. Push 代码到 `main` 分支，或
 2. 在 GitHub Actions 页面手动触发 "Deploy Backend (prod)"
 
 ## 安全性考虑
 
 ### 网络隔离
+
 - ✓ Lambda 运行在私有子网，无法从互联网直接访问
 - ✓ 所有外部访问必须通过 API Gateway
 - ✓ RDS 在同一 VPC 内，通过安全组隔离
 
 ### 最小权限原则
+
 - ✓ Lambda 只能访问必需的 RDS 端口 (5432)
 - ✓ 安全组使用引用方式（sg-xxx），而非 CIDR，更安全
 - ✓ NAT Gateway 确保出站流量使用固定公网 IP
 
 ### 数据加密
+
 - ✓ API Gateway 强制 HTTPS
 - ✓ Lambda 到 RDS 的连接可启用 SSL
 - ✓ 数据库密码通过 AWS Secrets Manager 或环境变量加密传递
@@ -338,6 +406,7 @@ build-BackendFunction:
 ## 监控和日志
 
 ### CloudWatch 日志组
+
 - Lambda 函数日志: `/aws/lambda/sam-aws-nest-backend-prod-BackendFunction-YPMWqxApxDuw`
 - API Gateway 日志: 通过 CloudWatch 查看
 
@@ -356,6 +425,7 @@ aws lambda list-functions --query 'Functions[?contains(FunctionName, `sam-aws-ne
 ### Lambda 无法连接 RDS
 
 检查清单:
+
 1. ✓ Lambda 和 RDS 在同一 VPC？
 2. ✓ lambda-sg 允许出站到 5432 端口？
 3. ✓ rds-sg 允许来自 lambda-sg 的入站 5432？
@@ -364,6 +434,7 @@ aws lambda list-functions --query 'Functions[?contains(FunctionName, `sam-aws-ne
 ### Lambda 无法访问互联网
 
 检查清单:
+
 1. ✓ Lambda 在私有子网？
 2. ✓ 私有子网路由表指向 NAT Gateway？
 3. ✓ NAT Gateway 状态为 available？
@@ -376,6 +447,7 @@ aws lambda list-functions --query 'Functions[?contains(FunctionName, `sam-aws-ne
 错误: `@prisma/client did not initialize yet`
 
 解决方案:
+
 - 确保 Makefile 中有 `npm exec prisma generate`
 - 确保 package.json 中有 `prisma` 包在 devDependencies
 - 确保 `@prisma/client` 在 dependencies（不会被 prune 删除）
@@ -391,7 +463,7 @@ aws lambda list-functions --query 'Functions[?contains(FunctionName, `sam-aws-ne
 
 ## 资源链接
 
-- API 端点: https://lioxovpmxc.execute-api.ap-southeast-2.amazonaws.com
+- API 端点: <https://lioxovpmxc.execute-api.ap-southeast-2.amazonaws.com/>
 - AWS Console: [Lambda Functions](https://ap-southeast-2.console.aws.amazon.com/lambda/home)
 - CloudFormation Stack: `sam-aws-nest-backend-prod`
 
