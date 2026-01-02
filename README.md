@@ -270,6 +270,22 @@ sam deploy --config-env prod \
   --parameter-overrides "DatabaseUrl=$DATABASE_URL VpcId=vpc-00b91951c36f803c6 LambdaSubnetIds=subnet-0252fa717f4638268,subnet-05b32a038870ee48f,subnet-0479d42241a7eae8f DatabaseSecurityGroupId=sg-0fc391d30ffe29141"
 ```
 
+部署完成后执行 Prisma 迁移（会自动创建 `DATABASE_URL` 里指定的数据库，如果不存在）：
+
+```bash
+FUNCTION_NAME="$(aws cloudformation describe-stacks \
+  --stack-name sam-aws-nest-backend-prod \
+  --region ap-southeast-2 \
+  --query "Stacks[0].Outputs[?OutputKey=='MigrationFunctionName'].OutputValue" \
+  --output text)"
+aws lambda invoke \
+  --function-name "$FUNCTION_NAME" \
+  --payload '{}' \
+  --cli-binary-format raw-in-base64-out \
+  /tmp/migrate.json
+cat /tmp/migrate.json
+```
+
 ### Makefile 构建流程
 
 ```makefile

@@ -31,7 +31,7 @@ jobs:
           sam --version
 
       - name: Build
-        run: sam build --template-file template.yaml
+        run: sam validate && sam build
 
       - name: Deploy
         env:
@@ -61,7 +61,6 @@ jobs:
             PARAM_OVERRIDES+=("LambdaSecurityGroupId=$LAMBDA_SECURITY_GROUP_ID")
           fi
           sam deploy \
-            --template-file template.yaml \
             --config-env prod \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
