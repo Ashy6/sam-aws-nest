@@ -37,7 +37,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
+          DATABASE_URL_FIXED="$DATABASE_URL"
           echo "::add-mask::$DATABASE_URL_FIXED"
           DB_HOST="$(python3 -c 'import os,urllib.parse; print(urllib.parse.urlparse(os.environ["DATABASE_URL_FIXED"]).hostname or "")')"
           DB_SG_ID="$(aws rds describe-db-instances \
