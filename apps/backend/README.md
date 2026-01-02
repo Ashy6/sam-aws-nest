@@ -31,6 +31,14 @@
 $ pnpm install
 ```
 
+## Environment
+
+Create `.env` (do not commit it) and set `DATABASE_URL`:
+
+```bash
+DATABASE_URL="postgresql://<DB_USER>:<DB_PASSWORD>@database-nest.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com:5432/DB?schema=public"
+```
+
 ## Compile and run the project
 
 ```bash

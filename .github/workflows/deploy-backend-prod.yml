@@ -36,15 +36,20 @@ jobs:
       - name: Deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_SECURITY_GROUP_ID: ${{ secrets.DB_SECURITY_GROUP_ID }}
         run: |
           DATABASE_URL_FIXED="$DATABASE_URL"
           echo "::add-mask::$DATABASE_URL_FIXED"
           export DATABASE_URL_FIXED
           DB_HOST="$(python3 -c 'import os,urllib.parse; print(urllib.parse.urlparse(os.environ["DATABASE_URL_FIXED"]).hostname or "")')"
-          DB_SG_ID="$(aws rds describe-db-instances \
-            --region "$AWS_REGION" \
-            --query "DBInstances[?Endpoint.Address=='${DB_HOST}'].VpcSecurityGroups[0].VpcSecurityGroupId" \
-            --output text)"
+          if [ -n "${DB_SECURITY_GROUP_ID:-}" ]; then
+            DB_SG_ID="$DB_SECURITY_GROUP_ID"
+          else
+            DB_SG_ID="$(aws rds describe-db-instances \
+              --region "$AWS_REGION" \
+              --query "DBInstances[?Endpoint.Address=='${DB_HOST}'].VpcSecurityGroups[0].VpcSecurityGroupId" \
+              --output text)"
+          fi
           if [ -z "$DB_SG_ID" ] || [ "$DB_SG_ID" = "None" ]; then
             echo "Could not resolve DB security group from RDS endpoint: $DB_HOST" 1>&2
             aws rds describe-db-instances --region "$AWS_REGION" --query "DBInstances[].Endpoint.Address" --output table 1>&2

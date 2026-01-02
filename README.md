@@ -121,7 +121,7 @@ graph LR
 #### 出站流量 (Lambda → RDS)
 1. **Lambda 发起连接**:
    - 源 IP: Lambda ENI 的私有 IP (10.0.0.x)
-   - 目标 IP: database-123333.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com
+   - 目标 IP: database-nest.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com
    - 目标端口: 5432
    - 协议: TCP
 
@@ -251,7 +251,7 @@ Parameters:
 ### 数据库连接
 
 ```
-DatabaseUrl: postgresql://zjx:Zengjx98!@database-123333.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com:5432/postgres?schema=public
+DatabaseUrl: postgresql://<DB_USER>:<DB_PASSWORD>@database-nest.c7c448egsa7a.ap-southeast-2.rds.amazonaws.com:5432/DB?schema=public
 ```
 
 ## 构建和部署
