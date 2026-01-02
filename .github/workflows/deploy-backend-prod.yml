@@ -39,11 +39,28 @@ jobs:
         run: |
           DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
           echo "::add-mask::$DATABASE_URL_FIXED"
+          DB_HOST="$(python3 - <<'PY'
+import os
+import urllib.parse
+url = os.environ["DATABASE_URL_FIXED"]
+p = urllib.parse.urlparse(url)
+print(p.hostname or "")
+PY
+)"
+          DB_SG_ID="$(aws rds describe-db-instances \
+            --region "$AWS_REGION" \
+            --query "DBInstances[?Endpoint.Address=='${DB_HOST}'].VpcSecurityGroups[0].VpcSecurityGroupId" \
+            --output text)"
+          if [ -z "$DB_SG_ID" ] || [ "$DB_SG_ID" = "None" ]; then
+            echo "Could not resolve DB security group from RDS endpoint: $DB_HOST" 1>&2
+            aws rds describe-db-instances --region "$AWS_REGION" --query "DBInstances[].Endpoint.Address" --output table 1>&2
+            exit 1
+          fi
           sam deploy \
             --config-env prod \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides "DatabaseUrl=$DATABASE_URL_FIXED"
+            --parameter-overrides "DatabaseUrl=$DATABASE_URL_FIXED" "DatabaseSecurityGroupId=$DB_SG_ID"
 
       - name: Run Prisma migrations (in VPC)
         run: |
