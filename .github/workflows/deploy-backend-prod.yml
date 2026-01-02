@@ -37,6 +37,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DB_SECURITY_GROUP_ID: ${{ secrets.DB_SECURITY_GROUP_ID }}
+          LAMBDA_SECURITY_GROUP_ID: ${{ secrets.LAMBDA_SECURITY_GROUP_ID }}
         run: |
           DATABASE_URL_FIXED="$DATABASE_URL"
           echo "::add-mask::$DATABASE_URL_FIXED"
@@ -55,11 +56,15 @@ jobs:
             aws rds describe-db-instances --region "$AWS_REGION" --query "DBInstances[].Endpoint.Address" --output table 1>&2
             exit 1
           fi
+          PARAM_OVERRIDES=("DatabaseUrl=$DATABASE_URL_FIXED" "DatabaseSecurityGroupId=$DB_SG_ID")
+          if [ -n "${LAMBDA_SECURITY_GROUP_ID:-}" ]; then
+            PARAM_OVERRIDES+=("LambdaSecurityGroupId=$LAMBDA_SECURITY_GROUP_ID")
+          fi
           sam deploy \
             --config-env prod \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides "DatabaseUrl=$DATABASE_URL_FIXED" "DatabaseSecurityGroupId=$DB_SG_ID"
+            --parameter-overrides "${PARAM_OVERRIDES[@]}"
 
       - name: Run Prisma migrations (in VPC)
         run: |

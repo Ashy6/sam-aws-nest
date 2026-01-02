@@ -6,6 +6,9 @@ Parameters:
   DatabaseUrl:
     Type: String
     NoEcho: true
+  LambdaSecurityGroupId:
+    Type: String
+    Default: ''
   VpcId:
     Type: AWS::EC2::VPC::Id
     Default: vpc-00b91951c36f803c6
@@ -15,6 +18,10 @@ Parameters:
   DatabaseSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
     Default: sg-0fc391d30ffe29141
+
+Conditions:
+  CreateManagedLambdaSecurityGroup: !Equals [!Ref LambdaSecurityGroupId, '']
+  UseExistingLambdaSecurityGroup: !Not [!Equals [!Ref LambdaSecurityGroupId, '']]
 
 Globals:
   Function:
@@ -48,7 +55,10 @@ Resources:
       Handler: src/lambda.handler
       VpcConfig:
         SecurityGroupIds:
-          - !Ref BackendLambdaSecurityGroup
+          - !If
+            - UseExistingLambdaSecurityGroup
+            - !Ref LambdaSecurityGroupId
+            - !Ref BackendLambdaSecurityGroup
         SubnetIds: !Ref LambdaSubnetIds
       Environment:
         Variables:
@@ -71,7 +81,10 @@ Resources:
       Timeout: 900
       VpcConfig:
         SecurityGroupIds:
-          - !Ref BackendLambdaSecurityGroup
+          - !If
+            - UseExistingLambdaSecurityGroup
+            - !Ref LambdaSecurityGroupId
+            - !Ref BackendLambdaSecurityGroup
         SubnetIds: !Ref LambdaSubnetIds
       Environment:
         Variables:
@@ -81,12 +94,14 @@ Resources:
 
   BackendLambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: CreateManagedLambdaSecurityGroup
     Properties:
       GroupDescription: sam-aws-nest backend lambda
       VpcId: !Ref VpcId
 
   DatabaseIngressFromBackendLambda:
     Type: AWS::EC2::SecurityGroupIngress
+    Condition: CreateManagedLambdaSecurityGroup
     Properties:
       GroupId: !Ref DatabaseSecurityGroupId
       IpProtocol: tcp
