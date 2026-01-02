@@ -77,23 +77,23 @@ jobs:
             --region "$AWS_REGION" \
             --query "Stacks[0].Outputs[?OutputKey=='MigrationFunctionName'].OutputValue" \
             --output text)"
-          INVOKE_META="$(aws lambda invoke \
+          aws lambda invoke \
             --function-name "$FUNCTION_NAME" \
             --payload '{}' \
             --cli-binary-format raw-in-base64-out \
-            /tmp/migrate.json)"
+            /tmp/migrate.json \
+            > /tmp/invoke-meta.json
           cat /tmp/migrate.json
           python3 - <<'PY'
-          import json,sys
-          meta=json.loads(sys.argv[1])
+          import json
+          meta=json.load(open('/tmp/invoke-meta.json'))
+          payload=json.load(open('/tmp/migrate.json'))
           if meta.get('FunctionError'):
             raise SystemExit(f"Migration Lambda failed: {meta['FunctionError']}")
-          with open('/tmp/migrate.json') as f:
-            payload=json.load(f)
           if payload.get('ok') is True:
             raise SystemExit(0)
           raise SystemExit(f"Migration payload indicates failure: {payload}")
-          PY "$INVOKE_META"
+          PY
 
       - name: Print stack outputs
         run: |
