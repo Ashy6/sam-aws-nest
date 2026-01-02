@@ -10,12 +10,12 @@
 
 ```mermaid
 flowchart LR
-  U[互联网客户端] -->|HTTPS| APIGW[API Gateway HTTP API]
-  APIGW -->|Invoke| L[Lambda: NestJS (私有子网)]
-  L -->|TCP 5432| DB[(RDS PostgreSQL 私有库)]
-  L -->|出网访问| NAT[NAT Gateway] --> NET[互联网]
-  L --> LOGS[CloudWatch Logs]
-  MIG[MigrationFunction<br/>Prisma migrate deploy] -->|TCP 5432| DB
+  U["互联网客户端"] -->|HTTPS| APIGW["API Gateway HTTP API"]
+  APIGW -->|Invoke| L["Lambda: NestJS (私有子网)"]
+  L -->|TCP 5432| DB[("RDS PostgreSQL 私有库")]
+  L -->|出网访问| NAT["NAT Gateway"] --> NET["互联网"]
+  L --> LOGS["CloudWatch Logs"]
+  MIG["MigrationFunction<br/>Prisma migrate deploy"] -->|TCP 5432| DB
 ```
 
 - 对外只暴露 `API Gateway` 入口；`Lambda/RDS` 都在 VPC 私有子网，无法被公网直连
