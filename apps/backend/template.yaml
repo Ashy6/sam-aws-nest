@@ -63,6 +63,22 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  MigrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/migration.handler
+      Timeout: 900
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref BackendLambdaSecurityGroup
+        SubnetIds: !Ref LambdaSubnetIds
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+    Metadata:
+      BuildMethod: makefile
+
   BackendLambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -82,3 +98,6 @@ Outputs:
   BackendApiUrl:
     Description: HTTP API endpoint
     Value: !Sub 'https://${BackendHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  MigrationFunctionName:
+    Description: Prisma migration runner Lambda function name
+    Value: !Ref MigrationFunction

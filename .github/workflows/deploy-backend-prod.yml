@@ -33,15 +33,6 @@ jobs:
       - name: Build
         run: sam build
 
-      - name: Run Prisma migrations
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          DATABASE_URL_FIXED="${DATABASE_URL/:5432\/DB\?/:5432\/postgres?}"
-          echo "::add-mask::$DATABASE_URL_FIXED"
-          export DATABASE_URL="$DATABASE_URL_FIXED"
-          npx -y prisma@6.0.0 migrate deploy --schema apps/backend/prisma/schema.prisma
-
       - name: Deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -53,6 +44,20 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --parameter-overrides "DatabaseUrl=$DATABASE_URL_FIXED"
+
+      - name: Run Prisma migrations (in VPC)
+        run: |
+          FUNCTION_NAME="$(aws cloudformation describe-stacks \
+            --stack-name sam-aws-nest-backend-prod \
+            --region "$AWS_REGION" \
+            --query "Stacks[0].Outputs[?OutputKey=='MigrationFunctionName'].OutputValue" \
+            --output text)"
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME" \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            /tmp/migrate.json
+          cat /tmp/migrate.json
 
       - name: Print stack outputs
         run: |

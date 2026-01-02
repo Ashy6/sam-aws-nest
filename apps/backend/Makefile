@@ -10,3 +10,5 @@ build-BackendFunction:
 	mkdir -p $(ARTIFACTS_DIR)/prisma
 	cp prisma/schema.prisma $(ARTIFACTS_DIR)/prisma/schema.prisma
 	cp -R prisma/migrations $(ARTIFACTS_DIR)/prisma/migrations
+
+build-MigrationFunction: build-BackendFunction
